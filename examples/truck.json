@@ -1,0 +1,39 @@
+{
+	"site": "kevin.sandbox.imarc.net",
+
+	"sources": {
+		"source": {
+			"svn": "https://svn.imarc.net/kevin.sandbox.imarc.net/trunk",
+			"rev": "HEAD",
+			"dirs": [ "app", "docroot" ]
+		},
+		"stage_source": {
+			"svn": "https://svn.imarc.net/kevin.sandbox.imarc.net/trunk",
+			"rev": "@stage",
+			"dirs": [ "app", "docroot" ]
+		},
+		"content": {
+			"base": "^/prod",
+			"dirs": [ "writable" ]
+		}
+	},
+
+	"servers": {
+		"localhost": "kevin@localhost"
+	},
+
+	"environments": {
+		"dev": {
+			"servers": [ "localhost" ],
+			"sources": [ "source", "content" ]
+		},
+		"stage": {
+			"servers": [ "localhost" ],
+			"sources": [ "source", "content" ]
+		},
+		"prod": {
+			"servers": [ "localhost" ],
+			"sources": [ "stage_source" ]
+		}
+	}
+}
