@@ -2,18 +2,21 @@
 	"site": "kevin.sandbox.imarc.net",
 
 	"sources": {
-		"source": {
-			"svn": "https://svn.imarc.net/kevin.sandbox.imarc.net/trunk",
+		"head": {
+			"type": "source/svn",
+			"url": "https://svn.imarc.net/kevin.sandbox.imarc.net/trunk",
 			"rev": "HEAD",
 			"dirs": [ "app", "docroot" ]
 		},
-		"stage_source": {
-			"svn": "https://svn.imarc.net/kevin.sandbox.imarc.net/trunk",
+		"staged": {
+			"type": "source/svn",
+			"args": "https://svn.imarc.net/kevin.sandbox.imarc.net/trunk",
 			"rev": "@stage",
 			"dirs": [ "app", "docroot" ]
 		},
 		"content": {
-			"base": "^/prod",
+			"type": "source/local",
+			"path": "./prod",
 			"dirs": [ "writable" ]
 		}
 	},
@@ -25,15 +28,15 @@
 	"environments": {
 		"dev": {
 			"servers": [ "localhost" ],
-			"sources": [ "source", "content" ]
+			"sources": [ "head", "content" ]
 		},
 		"stage": {
 			"servers": [ "localhost" ],
-			"sources": [ "source", "content" ]
+			"sources": [ "head", "content" ]
 		},
 		"prod": {
 			"servers": [ "localhost" ],
-			"sources": [ "stage_source" ]
+			"sources": [ "staged" ]
 		}
 	}
 }
