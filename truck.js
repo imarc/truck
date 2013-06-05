@@ -1,57 +1,87 @@
 var spawn = require('child_process').spawn;
 
-var Config = function(obj) {
-	for (var i in obj) {
-		this[i] = obj[i];
+load = function(objectname, base) {
+	if (base === undefined) {
+		base = './lib';
+	}
+
+	var filename = base + '/' + objectname + '.js';
+	return require(filename);
+};
+
+var Config = load('config');
+var Server = load('server');
+
+var defaults = {
+	forEnv: function(name) {
+		if (name in this.environments) {
+			return this.environments[name];
+		} else {
+			throw "No configuration for environment " + name + ".";
+		}
+	},
+
+	forServer: function(name) {
+		if (name in this.servers) {
+			return this.servers[name];
+		} else {
+			throw "No configuration for server " + name + ".";
+		}
+	},
+
+	createServer: function(name) {
+		return new Server(this.forServer(name));
+	},
+
+	forSource: function(name) {
+		if (name in this.sources) {
+			return this.sources[name];
+		} else {
+			throw "No configuration for source " + name + ".";
+		}
+	},
+
+	createSource: function(name) {
+		var conf = this.forSource(name);
+		if ('type' in conf) {
+			var type = load(conf.type);
+			return new type(conf);
+		} else {
+			throw "Source " + name + " is missing a type.";
+		}
 	}
 };
 
-Config.prototype = {};
 
 var Truck = function(env) {
 	var truck = this;
 
-	var config = new Config(require(Truck.path + '/truck.json'));
+	var config = new Config(Truck.path + '/examples/truck.json', defaults);
 
-	if (!(env in config.environments)) {
-		throw "The Environment " + env + " is not defined in truck.json.";
-	}
-	var envConf = config.environments[env];
-
-
-	var exportSourceToServer = function(source, server) {
-		var sourceConf = config.sources[source];
-		var serverConf = config.environments[server];
-
-		if ('svn' in sourceConf) {
-			console.log("Subversion Export at revision", sourceConf.rev, "for directories", sourceConf.dirs);
-		} else if ('base' in sourceConf) {
-			console.log("Normal directory copy of", sourceConf.dirs, "from", sourceConf.base);
-		}
-
-	};
-
-	var validateServer = function(server) {
-	};
-
-	var validateSource = function(source) {
-	};
+	var envConf = config.forEnv(env);
 
 
 	this.validate = function() {
 
 		for (var i = 0; i < envConf.servers.length; i++) {
-			validateServer(envConf.servers[i]);
+			var servername = envConf.servers[i];
+			config.createServer(servername).validate();
 		}
 		for (var j = 0; j < envConf.sources.length; j++) {
-			validateSource(envConf.sources[j]);
+			var sourcename = envConf.sources[j];
+			config.createSource(sourcename).validate();
 		}
 	};
 
 	this.export = function() {
 		for (var i = 0; i < envConf.servers.length; i++) {
+			var servername = envConf.servers[i];
+			var server = config.createServer(servername);
+			
 			for (var j = 0; j < envConf.sources.length; j++) {
-				exportSourceToServer(envConf.sources[j], envConf.servers[i]);
+				var sourcename = envConf.sources[j];
+
+				config.createSource(sourcename).exportToServer(server);
 			}
 		}
 	};
