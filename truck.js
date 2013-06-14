@@ -1,104 +1,128 @@
+/**
+ * Dependencies.
+ */
 var spawn = require('child_process').spawn;
 
-load = function(objectname, base) {
-	if (base === undefined) {
-		base = './lib';
-	}
-
-	var filename = base + '/' + objectname + '.js';
-	return require(filename);
+/**
+ * Just a slightly more convienent loader than require().
+ */
+load = function(name) {
+	return require(__dirname + '/lib/' + name + '.js');
 };
 
-var Config = load('config');
-var Server = load('server');
+var Truck = function() {
 
-var defaults = {
-	forEnv: function(name) {
-		if (name in this.environments) {
-			return this.environments[name];
-		} else {
-			throw "No configuration for environment " + name + ".";
-		}
-	},
+	/* Loads configuration from config.js, using /lib/config.js to provide default behavior. */
+	var Config = load('config');
+	Config = new Config(__dirname + '/config.js');
+	
+	/**
+	 * Returns a generated shell script as a string.
+	 *
+	 * env       String    Name of environment.
+	 * server    String    Uses to lookup and generate environment variables.
+	 * action    String    Action to execute.
+	 */
+	var generateScript = function(env, server, action) {
+		var sources = Config.environments[env].sources;
+		var script = load('environment')(server);
 
-	forServer: function(name) {
-		if (name in this.servers) {
-			return this.servers[name];
-		} else {
-			throw "No configuration for server " + name + ".";
-		}
-	},
+		for (var i = 0; i < sources.length; i++) {
+			var source = Config.sources[sources[i]];
 
-	createServer: function(name) {
-		return new Server(this.forServer(name));
-	},
+			var sourceObj = load(source.type);
+			sourceObj = new sourceObj(source);
 
-	forSource: function(name) {
-		if (name in this.sources) {
-			return this.sources[name];
-		} else {
-			throw "No configuration for source " + name + ".";
-		}
-	},
-
-	createSource: function(name) {
-		var conf = this.forSource(name);
-		if ('type' in conf) {
-			var type = load(conf.type);
-			return new type(conf);
-		} else {
-			throw "Source " + name + " is missing a type.";
-		}
-	}
-};
-
-
-var Truck = function(env) {
-	var truck = this;
-
-	var config = new Config(Truck.path + '/examples/truck.json', defaults);
-
-	var envConf = config.forEnv(env);
-
-
-	this.validate = function() {
-
-		for (var i = 0; i < envConf.servers.length; i++) {
-			var servername = envConf.servers[i];
-			config.createServer(servername).validate();
-		}
-		for (var j = 0; j < envConf.sources.length; j++) {
-			var sourcename = envConf.sources[j];
-			config.createSource(sourcename).validate();
-		}
-	};
-
-	this.export = function() {
-		for (var i = 0; i < envConf.servers.length; i++) {
-			var servername = envConf.servers[i];
-			var server = config.createServer(servername);
-			
-			for (var j = 0; j < envConf.sources.length; j++) {
-				var sourcename = envConf.sources[j];
-
-				config.createSource(sourcename).exportToServer(server);
+			if (typeof(sourceObj[action]) == 'function') {
+				script += sourceObj[action]();
 			}
 		}
+
+		return script;
 	};
 
-	this.migrate = function() {};
-	this.replace = function() {};
+	/**
+	 * Executes a script remotely by starting ssh and piping the script into it.
+	 *
+	 * server    String    connection string.
+	 * script    String    contents of script to run.
+	 * callback  Function  executing after script is completed.
+	 */
+	var runScript = function(server, script, callback) {
+		var proc = spawn('ssh', [ '-T', server, 'bash' ]);
+		proc.stdin.end(script);
+		proc.stdout.on('data', function(data) { console.log((server + ': ' + data).trim()); });
+		proc.stderr.on('data', function(data) { console.log((server + ': ' + data).trim()); });
+
+		proc.on('exit', function(code, signal) {
+			if (code == 0) {
+				if (typeof(callback) == 'function') {
+					callback();
+				}
+			} else {
+				process.exit(code);
+			}
+		});
+	};
+
+	/**
+	 * Recursive function that queues scripts and runs them in order, in parallel.
+	 *
+	 * env       String    Environment.
+	 * actions   Array     Array of actions to perform.
+	 */
+	var runActions = function(env, actions) {
+		if (actions.length == 0) {
+			return;
+		}
+
+		var servers = Config.environments[env].servers;
+		var action = actions.shift();
+
+		var processes = 0;
+
+		console.log('= running action', action, '=');
+
+		for (var i = 0; i < servers.length; i++) {
+			var server = Config.servers[servers[i]];
+			var script = generateScript(env, server, action);
+
+			processes++;
+			runScript(server, script, function() {
+				processes--;
+				if (processes == 0) {
+					runActions(env, actions);
+				}
+			});
+		}
+	};
+
+	/**
+	 * Placeholder - just queues and runs these four actions. This may be good enough,
+	 * but in all liklihood we'll want to make this configurable and such.
+	 */
+	this.deploy = function(env) {
+		runActions(env, ['validate', 'export', 'migrate', 'replace']);
+	};
 };
 
-module.exports = Truck;
-
+/**
+ * Arguments handling, to handle being called directly (./truck.js ...) or with node
+ * (node ./truck.js ...).
+ */
 var args = process.argv;
-if (args.length > 1 && args[1].match('truck.js')) {
-	Truck.path = args[1].replace(/\/truck.js$/, '');
-
-	var t = new Truck(args[2]);
-	t.validate();
-	t.export();
-	t.migrate();
-	t.replace();
+if (args.length > 1 && args[1].match(__filename)) {
+	args = args.slice(2);
+} else if (args.length && args[0].match(__filename)) {
+	args = args.slice(1);
+} else {
+	//show help
+	console.log("You need help.");
 }
+
+/**
+ * Placeholder - we'll want to make this more flexible, but for now its hard coded to expect the ENV
+ * as the one and only argument, and to always deploy.
+ */
+var t = new Truck();
+t.deploy(args[0]);
