@@ -2,6 +2,7 @@
  * Dependencies.
  */
 var spawn = require('child_process').spawn;
+var fs = require('fs');
 
 /**
  * Just a slightly more convienent loader than require().
@@ -25,16 +26,24 @@ var Truck = function() {
 	 */
 	var generateScript = function(env, server, action) {
 		var sources = Config.environments[env].sources;
+
+		/* Generate the bash aliases here. */
 		var script = load('environment')(server);
 
+		/* include all of the bash scripts, concatenated together. */
 		for (var i = 0; i < sources.length; i++) {
 			var source = Config.sources[sources[i]];
 
-			var sourceObj = load(source.type);
-			sourceObj = new sourceObj(source);
-
-			if (typeof(sourceObj[action]) == 'function') {
-				script += sourceObj[action]();
+			var filename = __dirname + '/scripts/' + source.type + '.' + action;
+			
+			if (fs.existsSync(filename + '.pre.sh')) {
+				script += fs.readFileSync(filename + '.pre.sh') + "\n";
+			}
+			if (fs.existsSync(filename + '.sh')) {
+				script += fs.readFileSync(filename + '.sh') + "\n";
+			}
+			if (fs.existsSync(filename + '.post.sh')) {
+				script += fs.readFileSync(filename + '.post.sh') + "\n";
 			}
 		}
 
