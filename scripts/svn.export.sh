@@ -1,1 +1,1 @@
-echo "EXPORT SVN"
+echo svn export -q 

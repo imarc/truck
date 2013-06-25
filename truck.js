@@ -16,7 +16,7 @@ var Truck = function() {
 	/* Loads configuration from config.js, using /lib/config.js to provide default behavior. */
 	var Config = load('config');
 	Config = new Config(__dirname + '/config.js');
-	
+
 	/**
 	 * Returns a generated shell script as a string.
 	 *
@@ -25,16 +25,18 @@ var Truck = function() {
 	 * action    String    Action to execute.
 	 */
 	var generateScript = function(env, server, action) {
-		var sources = Config.environments[env].sources;
 
-		/* Generate the bash aliases here. */
-		var script = load('environment')(server);
+		var origins = Config.for(env).sources;
+
+		var script = '';
 
 		/* include all of the bash scripts, concatenated together. */
-		for (var i = 0; i < sources.length; i++) {
-			var source = Config.sources[sources[i]];
+		for (var i = 0; i < origins.length; i++) {
+			var conf = Config.for(env, origins[i]);
 
-			var filename = __dirname + '/scripts/' + source.type + '.' + action;
+			var filename = __dirname + '/scripts/' + conf.type + '.' + action;
+
+			script += Config.generateScript(env, conf);
 			
 			if (fs.existsSync(filename + '.pre.sh')) {
 				script += fs.readFileSync(filename + '.pre.sh') + "\n";
@@ -85,19 +87,19 @@ var Truck = function() {
 			return;
 		}
 
-		var servers = Config.environments[env].servers;
+		var hosts = Config.for(env).hosts;
 		var action = actions.shift();
 
 		var processes = 0;
 
 		console.log('= running action', action, '=');
 
-		for (var i = 0; i < servers.length; i++) {
-			var server = Config.servers[servers[i]];
-			var script = generateScript(env, server, action);
+		for (var i = 0; i < hosts.length; i++) {
+			var host = Config.for(env).servers[hosts[i]];
+			var script = generateScript(env, host, action);
 
 			processes++;
-			runScript(server, script, function() {
+			runScript(host, script, function() {
 				processes--;
 				if (processes == 0) {
 					runActions(env, actions);
