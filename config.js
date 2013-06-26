@@ -1,7 +1,8 @@
 module.exports = {
 	site: 'kevin.sandbox.imarc.net',
 
-	servers: {
-		localhost: 'kevin@localhost'
+	hosts: {
+		localhost: 'kevin@localhost',
+		rogue: 'web@rogue.imarc.net'
 	}
 };

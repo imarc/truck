@@ -3,63 +3,79 @@
  */
 var spawn = require('child_process').spawn;
 var fs = require('fs');
+var Config = require(__dirname + '/lib/config.js');
 
-/**
- * Just a slightly more convienent loader than require().
- */
-load = function(name) {
-	return require(__dirname + '/lib/' + name + '.js');
-};
 
 var Truck = function() {
+	var config = new Config(__dirname + '/config.js');
 
-	/* Loads configuration from config.js, using /lib/config.js to provide default behavior. */
-	var Config = load('config');
-	Config = new Config(__dirname + '/config.js');
+	this.deploy = function(env) {
+		runActions(env, ['validate', 'export', 'migrate', 'replace']);
+	};
 
-	/**
-	 * Returns a generated shell script as a string.
-	 *
-	 * env       String    Name of environment.
-	 * server    String    Uses to lookup and generate environment variables.
-	 * action    String    Action to execute.
-	 */
-	var generateScript = function(env, server, action) {
+	var runActions = function(env, actions) {
+		if (actions.length == 0)  {
+			return;
+		}
 
-		var origins = Config.for(env).sources;
+		var hosts = config.for(env).active.hosts;
+		var action = actions.shift();
+
+		var processes = 0;
+
+		console.log('=', action, '=');
+
+		for (var key in hosts) {
+			var host = hosts[key];
+			var script = generateScript(env, action);
+
+			processes++;
+			runScript(hosts[key], script, function() {
+				processes--;
+
+				if (processes == 0) {
+					runActions(env, actions);
+				}
+			});
+		}
+	};
+
+	var generateScript = function(env, action) {
+		var origins = config.for(env).active.origins;
 
 		var script = '';
 
-		/* include all of the bash scripts, concatenated together. */
-		for (var i = 0; i < origins.length; i++) {
-			var conf = Config.for(env, origins[i]);
+		for (var originKey in origins) {
+			var origin = origins[originKey];
 
-			var filename = __dirname + '/scripts/' + conf.type + '.' + action;
+			var originConfig = config.for(env, originKey);
 
-			script += Config.generateScript(env, conf);
-			
-			if (fs.existsSync(filename + '.pre.sh')) {
-				script += fs.readFileSync(filename + '.pre.sh') + "\n";
+			var baseFilename = __dirname + '/scripts/' + originConfig.active.type + '.' + action;
+
+			var aliases = config.generateEnvironment(env, originKey);
+
+			console.log('baseFilename', baseFilename);
+
+			if (fs.existsSync(baseFilename + '.pre.sh')) {
+				script += fs.readFileSync(baseFilename + '.pre.sh') + "\n";
 			}
-			if (fs.existsSync(filename + '.sh')) {
-				script += fs.readFileSync(filename + '.sh') + "\n";
+			if (fs.existsSync(baseFilename + '.sh')) {
+				script += fs.readFileSync(baseFilename + '.sh') + "\n";
 			}
-			if (fs.existsSync(filename + '.post.sh')) {
-				script += fs.readFileSync(filename + '.post.sh') + "\n";
+			if (fs.existsSync(baseFilename + '.post.sh')) {
+				script += fs.readFileSync(baseFilename + '.post.sh') + "\n";
+			}
+
+			if (script.length > 0) {
+				script = aliases + "\n" + script;
 			}
 		}
 
 		return script;
 	};
 
-	/**
-	 * Executes a script remotely by starting ssh and piping the script into it.
-	 *
-	 * server    String    connection string.
-	 * script    String    contents of script to run.
-	 * callback  Function  executing after script is completed.
-	 */
 	var runScript = function(server, script, callback) {
+		console.log('runScript', server, script);
 		var proc = spawn('ssh', [ '-T', server, 'bash' ]);
 		proc.stdin.end(script);
 		proc.stdout.on('data', function(data) { console.log((server + ': ' + data).trim()); });
@@ -74,46 +90,6 @@ var Truck = function() {
 				process.exit(code);
 			}
 		});
-	};
-
-	/**
-	 * Recursive function that queues scripts and runs them in order, in parallel.
-	 *
-	 * env       String    Environment.
-	 * actions   Array     Array of actions to perform.
-	 */
-	var runActions = function(env, actions) {
-		if (actions.length == 0) {
-			return;
-		}
-
-		var hosts = Config.for(env).hosts;
-		var action = actions.shift();
-
-		var processes = 0;
-
-		console.log('= running action', action, '=');
-
-		for (var i = 0; i < hosts.length; i++) {
-			var host = Config.for(env).servers[hosts[i]];
-			var script = generateScript(env, host, action);
-
-			processes++;
-			runScript(host, script, function() {
-				processes--;
-				if (processes == 0) {
-					runActions(env, actions);
-				}
-			});
-		}
-	};
-
-	/**
-	 * Placeholder - just queues and runs these four actions. This may be good enough,
-	 * but in all liklihood we'll want to make this configurable and such.
-	 */
-	this.deploy = function(env) {
-		runActions(env, ['validate', 'export', 'migrate', 'replace']);
 	};
 };
 
