@@ -54,8 +54,6 @@ var Truck = function() {
 
 			var aliases = config.generateEnvironment(env, originKey);
 
-			console.log('baseFilename', baseFilename);
-
 			if (fs.existsSync(baseFilename + '.pre.sh')) {
 				script += fs.readFileSync(baseFilename + '.pre.sh') + "\n";
 			}
@@ -75,7 +73,7 @@ var Truck = function() {
 	};
 
 	var runScript = function(server, script, callback) {
-		console.log('runScript', server, script);
+		//console.log('runScript', server, script);
 		var proc = spawn('ssh', [ '-T', server, 'bash' ]);
 		proc.stdin.end(script);
 		proc.stdout.on('data', function(data) { console.log((server + ': ' + data).trim()); });
