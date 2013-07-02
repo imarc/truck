@@ -45,10 +45,10 @@ var Truck = function() {
 
 	var generateScript = function(env, origin, host, action) {
 		var conf = config.for(env, origin, host);
-		var script = '';
+		var script = 'shopt -s expand_aliases\n';
 		var baseFilename = __dirname + '/scripts/' + conf.type + '.' + action;
 
-		var aliases = config.generateEnvironment(env, origin, host);
+		var aliases = Config.generateAliases(conf, 'truck');
 
 		if (fs.existsSync(baseFilename + '.pre.sh')) {
 			script += fs.readFileSync(baseFilename + '.pre.sh') + "\n";
@@ -68,7 +68,7 @@ var Truck = function() {
 	};
 
 	var runScript = function(server, script, callback) {
-		//console.log('runScript', server, script);
+		console.log('runScript', server, script);
 		var proc = spawn('ssh', [ '-T', server, 'bash' ]);
 		proc.stdin.end(script);
 		proc.stdout.on('data', function(data) { console.log((server + ': ' + data).trim()); });
