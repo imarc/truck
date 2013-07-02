@@ -12,4 +12,9 @@ if ! [ -d $(truck.envRoot) ]; then
 	else
 		exit 1
 	fi
+
+	if [ -d $(truck.tempRoot) ]; then
+		rm -r $(truck.tempRoot)
+	fi
+	mkdir $(truck.tempRoot)
 fi

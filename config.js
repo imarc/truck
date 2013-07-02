@@ -3,6 +3,6 @@ module.exports = {
 
 	hosts: {
 		localhost: 'kevin@localhost',
-		rogue: 'web@rogue.imarc.net'
+		cask: 'web@cask.imarc.net'
 	}
 };
