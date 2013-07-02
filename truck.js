@@ -7,7 +7,66 @@ var Config = require(__dirname + '/lib/config.js');
 
 
 var Truck = function() {
+	var shorthand = {
+		d: 'debug'
+	};
+
 	var config = new Config(__dirname + '/config.js');
+
+	this.parse = function(args) {
+		var options = [];
+		var params = [];
+		for (var i=0; i<args.length; i++) {
+			var arg = args[i];
+			if (arg.match(/^--/)) {
+
+				options.push(arg.substr(2));
+			} else if (arg.match(/^-/)) {
+				arg = arg.substr(1);
+				for (var j=0; j<arg.length; j++) {
+					if (arg[j] in shorthand) {
+						options.push(shorthand[arg[j]]);
+					} else {
+						console.log(arg[j], 'is not a valid option for truck. You lose.');
+						process.exit(1);
+					}
+				}
+			} else {
+				params.push(arg);
+			}
+		}
+
+		if (params.length < 2) {
+			console.log("Usage: truck ACTION ENVIRONMENT\n");
+			process.exit(1);
+		}
+
+		var action = params.shift();
+		var env = params.shift();
+
+		if (action == 'deploy') {
+			this.deploy(env, options, params);
+		} else if (action == 'show') {
+			this.show(env, options, params);
+		} else {
+			console.log("Valid actions are: deploy show\n");
+			process.exit(1);
+		}
+	};
+
+	this.show = function(env, options, params) {
+		var origin, host;
+		if (params.length > 0) {
+			origin = params[0];
+		}
+		if (params.length > 1) {
+			host = params[1];
+		}
+
+		var conf = config.for(env, origin, host);
+
+		console.log(Config.generateAliases(conf, 'truck'));
+	};
 
 	this.deploy = function(env) {
 		runActions(env, ['validate', 'export', 'migrate', 'replace']);
@@ -107,4 +166,4 @@ if (args.length > 1 && args[1].match(__filename)) {
  * as the one and only argument, and to always deploy.
  */
 var t = new Truck();
-t.deploy(args[0]);
+t.parse(args);
