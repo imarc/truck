@@ -18,58 +18,53 @@ var Truck = function() {
 			return;
 		}
 
-		var hosts = config.for(env).active.hosts;
 		var action = actions.shift();
-
 		var processes = 0;
 
+
 		console.log('=', action, '=');
+		
+		var origins = config.for(env).origins;
+		for (var origin in origins) {
 
-		for (var key in hosts) {
-			var host = hosts[key];
-			var script = generateScript(env, action);
+			var hosts = config.for(env, origin).hosts;
+			for (var host in hosts) {
+				var hostString = hosts[host];
+				var script = generateScript(env, origin, host, action);
 
-			processes++;
-			runScript(hosts[key], script, function() {
-				processes--;
+				processes++;
+				runScript(hosts[host], script, function() {
+					if (--processes == 0) {
+						runActions(env, actions);
+					}
+				});
+			}
 
-				if (processes == 0) {
-					runActions(env, actions);
-				}
-			});
 		}
 	};
 
-	var generateScript = function(env, action) {
-		var origins = config.for(env).active.origins;
-
+	var generateScript = function(env, origin, host, action) {
+		var conf = config.for(env, origin, host);
 		var script = '';
+		var baseFilename = __dirname + '/scripts/' + conf.type + '.' + action;
 
-		for (var originKey in origins) {
-			var origin = origins[originKey];
+		var aliases = config.generateEnvironment(env, origin, host);
 
-			var originConfig = config.for(env, originKey);
-
-			var baseFilename = __dirname + '/scripts/' + originConfig.active.type + '.' + action;
-
-			var aliases = config.generateEnvironment(env, originKey);
-
-			if (fs.existsSync(baseFilename + '.pre.sh')) {
-				script += fs.readFileSync(baseFilename + '.pre.sh') + "\n";
-			}
-			if (fs.existsSync(baseFilename + '.sh')) {
-				script += fs.readFileSync(baseFilename + '.sh') + "\n";
-			}
-			if (fs.existsSync(baseFilename + '.post.sh')) {
-				script += fs.readFileSync(baseFilename + '.post.sh') + "\n";
-			}
-
-			if (script.length > 0) {
-				script = aliases + "\n" + script;
-			}
+		if (fs.existsSync(baseFilename + '.pre.sh')) {
+			script += fs.readFileSync(baseFilename + '.pre.sh') + "\n";
+		}
+		if (fs.existsSync(baseFilename + '.sh')) {
+			script += fs.readFileSync(baseFilename + '.sh') + "\n";
+		}
+		if (fs.existsSync(baseFilename + '.post.sh')) {
+			script += fs.readFileSync(baseFilename + '.post.sh') + "\n";
 		}
 
-		return script;
+		if (script.length > 0) {
+			return aliases + "\n" + script;
+		} else {
+			return '';
+		}
 	};
 
 	var runScript = function(server, script, callback) {
