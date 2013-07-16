@@ -1,4 +1,6 @@
 module.exports = {
+	svnDirectories: 'app config docroot local templates vendor',
+	localDirectories: '',
 	site: 'rsahr.imarc.net',
 	environments: {
 		dev: {
