@@ -65,7 +65,7 @@ var Truck = function() {
 
 		var conf = config.for(env, origin, host);
 
-		console.log(Config.generateAliases(conf, 'truck'));
+		console.log(conf.generateAliases());
 	};
 
 	this.deploy = function(env) {
@@ -88,11 +88,12 @@ var Truck = function() {
 
 			var hosts = config.for(env, origin).hosts;
 			for (var host in hosts) {
-				var hostString = hosts[host];
-				var script = generateScript(env, origin, host, action);
+				var subConfig = config.for(env, origin, host);
+
+				var script = generateScript(subConfig, action);
 
 				processes++;
-				runScript(hosts[host], script, function() {
+				runScript(subConfig.sshHost, script, function() {
 					if (--processes == 0) {
 						runActions(env, actions);
 					}
@@ -102,14 +103,9 @@ var Truck = function() {
 		}
 	};
 
-	var generateScript = function(env, origin, host, action) {
-		var conf = config.for(env, origin, host);
-		var script = 'shopt -s expand_aliases\n';
-		var baseFilename = __dirname + '/scripts/' + conf.type + '.' + action;
-
-		var aliases = Config.generateAliases(conf, 'truck');
-
-		//console.log("**", baseFilename, "**");
+	var generateScript = function(config, action) {
+		var script = '';
+		var baseFilename = __dirname + '/scripts/' + config.originType + '.' + action;
 
 		if (fs.existsSync(baseFilename + '.pre.sh')) {
 			script += fs.readFileSync(baseFilename + '.pre.sh') + "\n";
@@ -122,7 +118,7 @@ var Truck = function() {
 		}
 
 		if (script.length > 0) {
-			return aliases + "\n" + script;
+			return 'shopt -s expand_aliases\n' + config.generateAliases() + '\n' + script;
 		} else {
 			return '';
 		}

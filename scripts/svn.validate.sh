@@ -3,6 +3,6 @@ if ! which svn > /dev/null; then
 	exit 1;
 fi
 
-if [ -d $(truck.svn.tempExport) ]; then
-	rm -r $(truck.svn.tempExport)
+if [ -d $(truck.svnExportDir) ]; then
+	rm -r $(truck.svnExportDir)
 fi

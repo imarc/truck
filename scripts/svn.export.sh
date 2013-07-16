@@ -1,7 +1,7 @@
-echo "Exporting $(truck.svn.url) to $(truck.svn.tempExport)..."
+echo "Exporting $(truck.svnUrl) to $(truck.svnExportDir)..."
 
-svn export -q $(truck.svn.url) $(truck.svn.tempExport)
+svn export -q $(truck.svnUrl) $(truck.svnExportDir)
 
-for dir in $(truck.svn.directories); do
-	cp -r $(truck.svn.tempExport)/$dir $(truck.tempRoot)/
+for dir in $(truck.svnDirectories); do
+	cp -r $(truck.svnExportDir)/$dir $(truck.tempRoot)/
 done

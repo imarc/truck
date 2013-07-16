@@ -1,8 +1,8 @@
-echo "Exporting $(truck.local.directories)..."
-echo "from $(truck.local.path)..."
+echo "Exporting $(truck.localDirectories)..."
+echo "from $(truck.localPath)..."
 
-echo "Copying $(truck.local.directories) from $(truck.local.path)..."
+echo "Copying $(truck.localDirectories) from $(truck.localPath)..."
 
-for dir in $(truck.local.directories); do
-	cp -r $(truck.local.path)/$dir $(truck.tempRoot)/
+for dir in $(truck.localDirectories); do
+	cp -r $(truck.localPath)/$dir $(truck.tempRoot)/
 done
