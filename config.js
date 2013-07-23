@@ -1,21 +1,24 @@
 module.exports = {
-	svnDirectories: 'app config docroot local templates vendor',
+	svnDirectories: 'config docroot local templates vendor',
 	localDirectories: '',
 	site: 'rsahr.imarc.net',
 	environments: {
 		dev: {
-			postgresDB: 'dev_hr_rsa_com'
+			postgresDB: 'dev_hr_rsa_com',
+			postgresSourceDB: 'dev_hr_rsa_com'
 		},
 		stage: {
-			postgresDB: 'stage_hr_rsa_com'
+			postgresDB: 'stage_hr_rsa_com',
+			postgresSourceDB: 'dev_hr_rsa_com'
 		},
 		prod: {
 			postgresDB: 'hr_rsa_com',
+			postgresSourceDB: 'dev_hr_rsa_com'
 		}
 	},
 	hosts: {
 		cask: {
-			sshHost: 'web@cask.imarc.net'
+			sshHost: 'root@cask.imarc.net'
 		}
 	}
 };

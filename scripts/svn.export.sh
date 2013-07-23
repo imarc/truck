@@ -1,8 +1,11 @@
 echo "Exporting $(truck.svnUrl) to $(truck.svnExportDir)..."
 
-svn export -q $(truck.svnUrl) $(truck.svnExportDir)
+assert svn export -q $(truck.svnUrl) $(truck.svnExportDir)
+
+if [ ! -d $(truck.tempRoot) ]; then
+	mkdir $(truck.tempRoot)
+fi
 
 for dir in $(truck.svnDirectories); do
-	echo "Copying $dir..."
-	cp -r $(truck.svnExportDir)/$dir $(truck.tempRoot)/
+	assert cp -r $(truck.svnExportDir)/$dir $(truck.tempRoot)/$dir
 done

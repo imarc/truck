@@ -69,7 +69,7 @@ var Truck = function() {
 	};
 
 	this.deploy = function(env) {
-		runActions(env, ['validate', 'export', 'migrate', 'replace']);
+		runActions(env, ['validate', 'export', 'migrate', 'replace', 'cleanup']);
 	};
 
 	var runActions = function(env, actions) {
@@ -107,6 +107,10 @@ var Truck = function() {
 		var script = '';
 		var baseFilename = __dirname + '/scripts/' + config.originType + '.' + action;
 
+		var common = '';
+		if (fs.existsSync(__dirname + '/scripts/common.sh')) {
+			common = fs.readFileSync(__dirname + '/scripts/common.sh');
+		}
 		if (fs.existsSync(baseFilename + '.pre.sh')) {
 			script += fs.readFileSync(baseFilename + '.pre.sh') + "\n";
 		}
@@ -118,7 +122,7 @@ var Truck = function() {
 		}
 
 		if (script.length > 0) {
-			return 'shopt -s expand_aliases\n' + config.generateAliases() + '\n' + script;
+			return common + '\n' + config.generateAliases() + '\n' + script;
 		} else {
 			return '';
 		}
