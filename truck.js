@@ -92,6 +92,8 @@ var Truck = function() {
 
 				var script = generateScript(subConfig, action);
 
+				console.log(env, origin, host);
+
 				processes++;
 				runScript(subConfig.sshHost, script, function() {
 					if (--processes == 0) {
