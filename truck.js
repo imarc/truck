@@ -1,33 +1,55 @@
 /**
- * Dependencies.
+ * This is truck.
+ *
+ * @version 0.9
  */
+
 var spawn = require('child_process').spawn;
 var fs = require('fs');
 var Config = require(__dirname + '/lib/config.js');
 
 
 var Truck = function() {
-	var shorthand = {
-		d: 'debug'
+	var commandLineOptions = {
+		d: 'debug',
+
+		debug: function() {}
 	};
 
+	// config is the loaded configuration based on config.js.
 	var config = new Config(__dirname + '/config.js');
 
+	/**
+	 * This method parses command line arguments to truck, and calls the appropriate actions.
+	 */
 	this.parse = function(args) {
 		var options = [];
 		var params = [];
 		for (var i=0; i<args.length; i++) {
 			var arg = args[i];
-			if (arg.match(/^--/)) {
 
-				options.push(arg.substr(2));
+			if (arg.match(/^--/)) {
+				var arg = arg.substr(2);
+
+				if (arg in commandLineOptions) {
+					options.push(arg);
+				} else {
+					console.log(arg, 'is not a valid option.');
+					process.exit(1);
+				}
 			} else if (arg.match(/^-/)) {
-				arg = arg.substr(1);
+				var argString = arg.substr(1);
 				for (var j=0; j<arg.length; j++) {
-					if (arg[j] in shorthand) {
-						options.push(shorthand[arg[j]]);
+					arg = argString[j];
+
+					if (arg in commandLineOptions) {
+						if (typeof(commandLineOptions[arg]) == 'string') {
+							options.push(commandLineOptions[arg]);
+						} else {
+							options.push(arg);
+						}
 					} else {
-						console.log(arg[j], 'is not a valid option for truck. You lose.');
+						console.log(arg, 'is not a valid option.');
 						process.exit(1);
 					}
 				}
