@@ -6,188 +6,110 @@
 
 var spawn = require('child_process').spawn;
 var fs = require('fs');
+var GetOpt = require('node-getopt');
 var Config = require(__dirname + '/lib/config.js');
 
+opt = require('node-getopt').create([
+	['d', 'debug', 'Turn on debugging.'],
+	['h', 'help',  'Show this help']
+]).bindHelp().parseSystem();
 
 var Truck = function() {
-	var commandLineOptions = {
-		d: 'debug',
-
-		debug: function() {}
-	};
-
 	// config is the loaded configuration based on config.js.
 	var config = new Config(__dirname + '/config.js');
 
-	/**
-	 * This method parses command line arguments to truck, and calls the appropriate actions.
-	 */
-	this.parse = function(args) {
-		var options = [];
-		var params = [];
-		for (var i=0; i<args.length; i++) {
-			var arg = args[i];
 
-			if (arg.match(/^--/)) {
-				var arg = arg.substr(2);
+	this.drive = function() {
+		var getopt = GetOpt.create([
+			['d', 'debug', 'Turn on debugging.'],
+			['h', 'help',  'Show this help']
+		]).bindHelp().parseSystem();
 
-				if (arg in commandLineOptions) {
-					options.push(arg);
-				} else {
-					console.log(arg, 'is not a valid option.');
-					process.exit(1);
-				}
-			} else if (arg.match(/^-/)) {
-				var argString = arg.substr(1);
-				for (var j=0; j<arg.length; j++) {
-					arg = argString[j];
+		GetOpt.on('help', function() {
+			GetOpt.showHelp();
+			process.exit(1);
+		});
 
-					if (arg in commandLineOptions) {
-						if (typeof(commandLineOptions[arg]) == 'string') {
-							options.push(commandLineOptions[arg]);
-						} else {
-							options.push(arg);
-						}
-					} else {
-						console.log(arg, 'is not a valid option.');
-						process.exit(1);
-					}
-				}
-			} else {
-				params.push(arg);
-			}
-		}
-
-		if (params.length < 2) {
-			console.log("Usage: truck ACTION ENVIRONMENT\n");
+		if (getopt.argv.length != 2) {
+			GetOpt.showHelp();
 			process.exit(1);
 		}
 
 		var action = params.shift();
 		var env = params.shift();
 
-		if (action == 'deploy') {
-			this.deploy(env, options, params);
-		} else if (action == 'show') {
-			this.show(env, options, params);
-		} else {
-			console.log("Valid actions are: deploy show\n");
+
+		if (!(action in ['show', 'validate', 'export', 'migrate', 'replace', 'cleanup', 'deploy'])) {
+			console.log('action must be one of the following: deploy show validate export migrate replace cleanup');
 			process.exit(1);
 		}
+
+		this[action](env, getopt.argv, getopt.options);
 	};
 
-	this.show = function(env, options, params) {
-		var origin, host;
-		if (params.length > 0) {
-			origin = params[0];
-		}
-		if (params.length > 1) {
-			host = params[1];
-		}
 
-		var conf = config.for(env, origin, host);
-
-		console.log(conf.generateAliases());
+	this.show = function(env, argv, options) {
 	};
 
-	this.deploy = function(env) {
-		runActions(env, ['validate', 'export', 'migrate', 'replace', 'cleanup']);
+	this.deploy = function(env, argv, options) {
 	};
 
-	var runActions = function(env, actions) {
-		if (actions.length == 0)  {
-			return;
-		}
+
+	var perform = function(actions, env, argv, options) {
 
 		var action = actions.shift();
-		var processes = 0;
 
-
-		console.log('=', action, '=');
-		
 		var origins = config.for(env).origins;
 		for (var origin in origins) {
-
 			var hosts = config.for(env, origin).hosts;
 			for (var host in hosts) {
-				var subConfig = config.for(env, origin, host);
+				var targetConfig = config.for(env, origin, host);
 
-				var script = generateScript(subConfig, action);
+				if (!targetConfig.sourceHost) {
+					targetConfig.sourceHost = targetConfig.hosts[0];
+				}
 
-				console.log(env, origin, host);
+				var sourceConfig = config.for(
+					targetConfig.source,
+					origin,
+					targetConfig.sourceHost
+				);
 
+				var script = generateScript(sourceConfig, targetConfig, action);
+
+				console.log("SCRIPT", script);
+
+				/*
 				processes++;
-				runScript(subConfig.sshHost, script, function() {
+				runScript(targetConfig.host, script, function() {
 					if (--processes == 0) {
-						runActions(env, actions);
+						perform(actions, env, argv, options);
 					}
 				});
+				*/
 			}
-
 		}
 	};
 
-	var generateScript = function(config, action) {
+	var generateScript = function(sourceConfig, targetConfig, action) {
 		var script = '';
-		var baseFilename = __dirname + '/scripts/' + config.originType + '.' + action;
+		var baseFilename = [__dirname, 'scripts', config.originType].join('/') + '.' + action + '.sh';
 
-		var common = '';
-		if (fs.existsSync(__dirname + '/scripts/common.sh')) {
-			common = fs.readFileSync(__dirname + '/scripts/common.sh');
-		}
-		if (fs.existsSync(baseFilename + '.pre.sh')) {
-			script += fs.readFileSync(baseFilename + '.pre.sh') + "\n";
-		}
-		if (fs.existsSync(baseFilename + '.sh')) {
-			script += fs.readFileSync(baseFilename + '.sh') + "\n";
-		}
-		if (fs.existsSync(baseFilename + '.post.sh')) {
-			script += fs.readFileSync(baseFilename + '.post.sh') + "\n";
+		if (fs.existsSync(baseFilename)) {
+			script += fs.readFileSync(baseFilename) + "\n";
 		}
 
 		if (script.length > 0) {
-			return common + '\n' + config.generateAliases() + '\n' + script;
+			return [
+				fs.readFileSync(__dirname + '/scripts/common.sh'),
+				sourceConfig.generateAliases('source'),
+				targetConfig.generateAliases(),
+				script
+			].join("\n");
 		} else {
 			return '';
 		}
 	};
-
-	var runScript = function(server, script, callback) {
-		//console.log('runScript', server, script);
-		var proc = spawn('ssh', [ '-T', server, 'bash' ]);
-		proc.stdin.end(script);
-		proc.stdout.on('data', function(data) { console.log((server + ': ' + data).trim()); });
-		proc.stderr.on('data', function(data) { console.log((server + ': ' + data).trim()); });
-
-		proc.on('exit', function(code, signal) {
-			if (code == 0) {
-				if (typeof(callback) == 'function') {
-					callback();
-				}
-			} else {
-				process.exit(code);
-			}
-		});
-	};
 };
 
-/**
- * Arguments handling, to handle being called directly (./truck.js ...) or with node
- * (node ./truck.js ...).
- */
-var args = process.argv;
-if (args.length > 1 && args[1].match(__filename)) {
-	args = args.slice(2);
-} else if (args.length && args[0].match(__filename)) {
-	args = args.slice(1);
-} else {
-	//show help
-	console.log("You need help.");
-}
-
-/**
- * Placeholder - we'll want to make this more flexible, but for now its hard coded to expect the ENV
- * as the one and only argument, and to always deploy.
- */
-var t = new Truck();
-t.parse(args);
+(new Truck()).drive();
